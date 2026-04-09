@@ -32,6 +32,8 @@ const userSchema = new mongoose.Schema({
   contactUserIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
   status: { type: String, enum: ['online', 'offline', 'away'], default: 'offline' },
   lastSeen: { type: Date, default: Date.now },
+  resetOtp: { type: String, default: null },
+  resetOtpExpiry: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 }, {
   collection: 'users',
