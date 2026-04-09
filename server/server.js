@@ -123,9 +123,15 @@ function serializeUser(user) {
 }
 
 function serializeMessage(message) {
+  const chatId = message.chatId
+    ? message.chatId.toString()
+    : message.groupId
+      ? `chat-group-${message.groupId.toString()}`
+      : '';
+
   return {
     id: message._id.toString(),
-    chatId: message.chatId.toString(),
+    chatId,
     senderId: message.senderId.toString(),
     text: message.text || '',
     type: message.type || 'text',
@@ -149,6 +155,26 @@ function serializeMessage(message) {
 }
 
 function serializeChat(chat, currentUserId, usersById) {
+  if (chat.type === 'group') {
+    const participantIds = (chat.participantIds || []).map(id => id.toString());
+    return {
+      id: chat._id.toString(),
+      type: 'group',
+      name: chat.name || 'Group Chat',
+      avatar: chat.avatar || '👥',
+      participants: participantIds,
+      groupId: chat.groupId || '',
+      lastMessage: chat.lastMessage || '',
+      lastTime: new Date(chat.lastTime || chat.createdAt || Date.now()).getTime(),
+      unreadCount: 0,
+      pinned: false,
+      muted: false,
+      archived: false,
+      wallpaper: '',
+      disappearing: 'off',
+    };
+  }
+
   const participantIds = (chat.participantIds || []).map(id => id.toString());
   const otherUserId = participantIds.find(id => id !== currentUserId) || participantIds[0] || '';
   const otherUser = usersById.get(otherUserId);
@@ -252,10 +278,28 @@ async function buildBootstrap(userId) {
 const groups = await Group.find({
   "members.userId": new Types.ObjectId(userId),
 });
+
+  const groupChats = groups.map((group) => {
+    const participantIds = (group.members || []).map((member) => member.userId.toString());
+    return {
+      _id: `chat-group-${group._id.toString()}`,
+      type: 'group',
+      name: group.name,
+      avatar: '👥',
+      participants: participantIds,
+      groupId: group._id.toString(),
+      lastMessage: 'Group created',
+      lastTime: group.createdAt || new Date(),
+      createdAt: group.createdAt || new Date(),
+    };
+  });
+
+  const allChats = [...chats, ...groupChats];
+
   return {
     currentUser: serializeUser(currentUser),
     users: users.map(serializeUser),
-    chats: chats
+    chats: allChats
       .sort((a, b) => new Date(b.lastTime || b.createdAt).getTime() - new Date(a.lastTime || a.createdAt).getTime())
       .map(chat => serializeChat(chat, userId, usersById)),
     messagesByChat,
@@ -1060,22 +1104,25 @@ app.post("/api/group/extend/:id", async (req, res) => {
 
 app.post("/api/messages/group", async (req, res) => {
   try {
-    const { groupId, senderId, text } = req.body;
+    const { groupId, senderId, text, replyTo = null, mediaUrl = '', type = 'text' } = req.body;
 
     const message = await Message.create({
-      groupId,
-      senderId,
+      groupId: ensureObjectId(groupId, 'groupId'),
+      senderId: ensureObjectId(senderId, 'senderId'),
       text,
+      type,
+      mediaUrl,
+      replyTo: replyTo ? ensureObjectId(replyTo, 'replyTo') : null,
       timestamp: new Date(),
     });
 
-    // 🔥 realtime send to group
+    const serializedMessage = serializeMessage(message);
     io.to(groupId).emit("group-message", {
       groupId,
-      message,
+      message: serializedMessage,
     });
 
-    res.json({ ok: true, message });
+    res.json({ ok: true, message: serializedMessage });
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false });
@@ -1085,10 +1132,10 @@ app.post("/api/messages/group", async (req, res) => {
 app.get("/api/messages/group/:groupId", async (req, res) => {
   try {
     const messages = await Message.find({
-      groupId: req.params.groupId,
+      groupId: ensureObjectId(req.params.groupId, 'groupId'),
     }).sort({ timestamp: 1 });
 
-    res.json({ ok: true, messages });
+    res.json({ ok: true, messages: messages.map(serializeMessage) });
   } catch (err) {
     res.status(500).json({ ok: false });
   }
