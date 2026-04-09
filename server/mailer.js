@@ -17,19 +17,33 @@ function getSmtpConfig() {
   const pass = process.env.SMTP_PASS;
   const secure = String(process.env.SMTP_SECURE || "false") === "true";
 
-  if (!host || !user || !pass) {
-    return null;
+  // If SMTP_* vars are set, use them
+  if (host && user && pass) {
+    return {
+      host,
+      port,
+      secure,
+      auth: {
+        user,
+        pass,
+      },
+    };
   }
 
-  return {
-    host,
-    port,
-    secure,
-    auth: {
-      user,
-      pass,
-    },
-  };
+  // Fallback to Gmail if EMAIL and APP_PASSWORD are set
+  const gmailUser = process.env.EMAIL;
+  const gmailPass = process.env.APP_PASSWORD;
+  if (gmailUser && gmailPass) {
+    return {
+      service: "gmail",
+      auth: {
+        user: gmailUser,
+        pass: gmailPass,
+      },
+    };
+  }
+
+  return null;
 }
 
 let transporterPromise = null;
@@ -128,7 +142,11 @@ export async function sendSignupOtpEmail({ to, name, otp }) {
 }
 
 export const sendExpiryMail = async (email, group) => {
+  const transporter = await getMailer();
+  if (!transporter) return { ok: false, reason: "SMTP is not configured." };
+
   await transporter.sendMail({
+    from: buildFromAddress(),
     to: email,
     subject: "⚠️ ZenTalk Group Expiry Warning",
     html: `
@@ -142,4 +160,35 @@ export const sendExpiryMail = async (email, group) => {
       <a href="http://localhost:3001/retrieve/${group._id}">Delete & Retrieve</a>
     `
   });
+
+  return { ok: true };
 };
+
+export async function sendPasswordResetEmail({ to, name, resetToken }) {
+  const transporter = await getMailer();
+  if (!transporter) return { ok: false, reason: "SMTP is not configured." };
+
+  const resetUrl = `http://localhost:5173/reset/${resetToken}`;
+
+  await transporter.sendMail({
+    from: buildFromAddress(),
+    to,
+    subject: "ZenTalk password reset",
+    text: `Hello ${name},\n\nYou requested a password reset for your ZenTalk account.\n\nClick this link to reset your password: ${resetUrl}\n\nThis link will expire in 1 hour.\n\nIf you did not request this, you can ignore this email.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
+        <h2 style="margin-bottom: 12px;">Reset your ZenTalk password</h2>
+        <p>Hello ${name},</p>
+        <p>You requested a password reset for your ZenTalk account.</p>
+        <p style="margin: 24px 0;">
+          <a href="${resetUrl}" style="background-color: #0f766e; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a>
+        </p>
+        <p>Or copy and paste this link: <a href="${resetUrl}">${resetUrl}</a></p>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you did not request this, you can ignore this email.</p>
+      </div>
+    `,
+  });
+
+  return { ok: true };
+}
