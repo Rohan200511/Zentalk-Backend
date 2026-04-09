@@ -18,7 +18,7 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: "https://your-vercel-app.vercel.app",
+    origin: "https://zen-talk-zeta.vercel.app",
     methods: ["GET", "POST"]
   },
 });
