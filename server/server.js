@@ -17,7 +17,10 @@ const app = express();
 const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
-  cors: { origin: '*' },
+  cors: {
+    origin: "https://your-vercel-app.vercel.app",
+    methods: ["GET", "POST"]
+  },
 });
 
 app.use(express.json({ limit: '10mb' }));
