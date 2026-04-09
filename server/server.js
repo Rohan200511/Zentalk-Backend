@@ -1105,6 +1105,11 @@ io.on('connection', socket => {
       }
     });
 
+    emitToUser(room.callerId, 'call-accepted', {
+      callId: payload.callId,
+      userId: payload.fromUserId,
+    });
+
     await Call.findOneAndUpdate(
       { callId: payload.callId },
       { status: "accepted" }
