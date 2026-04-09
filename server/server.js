@@ -501,6 +501,72 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+app.post('/api/auth/forgot-password-otp', async (req, res) => {
+  try {
+    await connectToDatabase();
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) return res.json({ ok: true });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    user.resetOtp = await bcrypt.hash(otp, 10);
+    user.resetOtpExpiry = Date.now() + 10 * 60 * 1000;
+    await user.save();
+
+    await sendSignupOtpEmail({
+      to: user.email,
+      name: user.name,
+      otp,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
+app.post('/api/auth/reset-password-otp', async (req, res) => {
+  try {
+    await connectToDatabase();
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ ok: false, message: "Email, OTP, and new password are required" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ ok: false, message: "User not found" });
+    }
+
+    if (!user.resetOtp || !user.resetOtpExpiry) {
+      return res.status(400).json({ ok: false, message: "No OTP found. Please request a new one." });
+    }
+
+    if (user.resetOtpExpiry < Date.now()) {
+      return res.status(400).json({ ok: false, message: "OTP expired. Please request a new one." });
+    }
+
+    const isValid = await bcrypt.compare(otp, user.resetOtp);
+    if (!isValid) {
+      return res.status(400).json({ ok: false, message: "Invalid OTP" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetOtp = undefined;
+    user.resetOtpExpiry = undefined;
+
+    await user.save();
+
+    res.json({ ok: true, message: "Password reset successful" });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 app.post('/api/auth/signup/request-otp', async (req, res) => {
   try {
     await connectToDatabase();
