@@ -373,25 +373,6 @@ async function buildBootstrap(userId) {
     "members.userId": new Types.ObjectId(userId),
   });
 
-  const groupIds = groups.map(group => group._id);
-  const groupMessages = groupIds.length > 0
-    ? await Message.find({
-        groupId: { $in: groupIds },
-        $or: [
-          { disappearsAt: null },
-          { disappearsAt: { $gt: new Date() } },
-        ],
-      }).sort({ timestamp: 1 })
-    : [];
-
-  groupMessages.forEach(message => {
-    const chatId = `chat-group-${message.groupId.toString()}`;
-    if ((message.deletedFor || []).some(id => id.toString() === userId)) return;
-
-    if (!messagesByChat[chatId]) messagesByChat[chatId] = [];
-    messagesByChat[chatId].push(serializeMessage(message));
-  });
-
   const groupChats = groups.map((group) => {
     const participantIds = (group.members || []).map((member) => member.userId.toString());
     return {
@@ -1475,25 +1456,11 @@ app.post("/api/group/extend/:id", async (req, res) => {
 
 app.post("/api/messages/group", async (req, res) => {
   try {
-    await connectToDatabase();
-
     const { groupId, senderId, text, replyTo = null, mediaUrl = '', type = 'text' } = req.body;
-    const normalizedGroupId = ensureObjectId(groupId, 'groupId');
-    const normalizedSenderId = ensureObjectId(senderId, 'senderId');
-
-    const group = await Group.findById(normalizedGroupId);
-    if (!group) {
-      return res.status(404).json({ ok: false, message: 'Group not found.' });
-    }
-
-    const isMember = (group.members || []).some(member => member.userId?.toString() === normalizedSenderId.toString());
-    if (!isMember) {
-      return res.status(403).json({ ok: false, message: 'You are not a member of this group.' });
-    }
 
     const message = await Message.create({
-      groupId: normalizedGroupId,
-      senderId: normalizedSenderId,
+      groupId: ensureObjectId(groupId, 'groupId'),
+      senderId: ensureObjectId(senderId, 'senderId'),
       text,
       type,
       mediaUrl,
@@ -1510,21 +1477,18 @@ app.post("/api/messages/group", async (req, res) => {
     res.json({ ok: true, message: serializedMessage });
   } catch (err) {
     console.error(err);
-    res.status(err.statusCode || 500).json({ ok: false, message: err.message || 'Unable to send group message.' });
+    res.status(500).json({ ok: false });
   }
 });
 
 app.get("/api/messages/group/:groupId", async (req, res) => {
   try {
-    await connectToDatabase();
-
     const messages = await Message.find({
       groupId: ensureObjectId(req.params.groupId, 'groupId'),
     }).sort({ timestamp: 1 });
 
     res.json({ ok: true, messages: messages.map(serializeMessage) });
   } catch (err) {
-    console.error(err);
-    res.status(err.statusCode || 500).json({ ok: false, message: err.message || 'Unable to load group messages.' });
+    res.status(500).json({ ok: false });
   }
 });
