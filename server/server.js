@@ -373,6 +373,25 @@ async function buildBootstrap(userId) {
     "members.userId": new Types.ObjectId(userId),
   });
 
+  const groupIds = groups.map(group => group._id);
+  const groupMessages = groupIds.length > 0
+    ? await Message.find({
+        groupId: { $in: groupIds },
+        $or: [
+          { disappearsAt: null },
+          { disappearsAt: { $gt: new Date() } },
+        ],
+      }).sort({ timestamp: 1 })
+    : [];
+
+  groupMessages.forEach(message => {
+    const chatId = `chat-group-${message.groupId.toString()}`;
+    if ((message.deletedFor || []).some(id => id.toString() === userId)) return;
+
+    if (!messagesByChat[chatId]) messagesByChat[chatId] = [];
+    messagesByChat[chatId].push(serializeMessage(message));
+  });
+
   const groupChats = groups.map((group) => {
     const participantIds = (group.members || []).map((member) => member.userId.toString());
     return {
