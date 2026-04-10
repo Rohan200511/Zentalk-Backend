@@ -67,7 +67,8 @@ const chatPreferenceSchema = new mongoose.Schema({
 chatPreferenceSchema.index({ chatId: 1, userId: 1 }, { unique: true });
 
 const messageSchema = new mongoose.Schema({
-  chatId: { type: mongoose.Schema.Types.ObjectId, ref: 'Chat', required: true, index: true },
+  chatId: { type: mongoose.Schema.Types.ObjectId, ref: 'Chat', default: null, index: true },
+  groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: null, index: true },
   senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   text: { type: String, default: '' },
   type: { type: String, enum: ['text', 'image', 'video', 'document', 'audio'], default: 'text' },
@@ -87,6 +88,13 @@ const messageSchema = new mongoose.Schema({
 }, {
   collection: 'messages',
   versionKey: false,
+});
+
+messageSchema.pre('validate', function validateMessageDestination(next) {
+  if (!this.chatId && !this.groupId) {
+    this.invalidate('chatId', 'Either chatId or groupId is required.');
+  }
+  next();
 });
 
 const signupOtpSchema = new mongoose.Schema({
@@ -110,8 +118,6 @@ export const Chat = mongoose.models.Chat || mongoose.model('Chat', chatSchema);
 export const ChatPreference = mongoose.models.ChatPreference || mongoose.model('ChatPreference', chatPreferenceSchema);
 export const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
 export const SignupOtp = mongoose.models.SignupOtp || mongoose.model('SignupOtp', signupOtpSchema);
-
-
 
 const GroupSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -143,20 +149,6 @@ const GroupSchema = new mongoose.Schema({
   }
 
   
-});
-
-const MessageSchema = new mongoose.Schema({
-  chatId: { type: mongoose.Schema.Types.ObjectId, ref: "Chat", default: null },
-
-  // 🔥 NEW
-  groupId: { type: mongoose.Schema.Types.ObjectId, ref: "Group", default: null },
-
-  senderId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-
-  text: String,
-  type: { type: String, default: "text" },
-
-  timestamp: { type: Date, default: Date.now }
 });
 
 export const Group =
