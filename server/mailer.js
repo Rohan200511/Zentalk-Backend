@@ -35,12 +35,14 @@ function getSmtpConfig() {
   const gmailPass = process.env.APP_PASSWORD;
   if (gmailUser && gmailPass) {
     return {
-      service: "gmail",
-      auth: {
-        user: gmailUser,
-        pass: gmailPass,
-      },
-    };
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: gmailUser,
+    pass: gmailPass,
+  },
+};
   }
 
   return null;
