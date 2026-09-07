@@ -131,27 +131,63 @@ export async function sendWelcomeEmail({ to, name, username }) {
 }
 
 export async function sendSignupOtpEmail({ to, name, otp }) {
-  const transporter = await getMailer();
-  if (!transporter) return { ok: false, reason: "SMTP is not configured." };
+  const apiKey = process.env.RESEND_API_KEY;
 
-  await transporter.sendMail({
-    from: buildFromAddress(),
-    to,
-    subject: "ZenTalk signup verification code",
-    text: `Hello ${name || "there"},\n\nYour ZenTalk verification code is ${otp}.\n\nThis code will expire in 10 minutes.\n\nIf you did not request this, you can ignore this email.`,
-    html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
-        <h2 style="margin-bottom: 12px;">Verify your ZenTalk account</h2>
-        <p>Hello ${name || "there"},</p>
-        <p>Your verification code is:</p>
-        <div style="margin: 18px 0; font-size: 28px; font-weight: 700; letter-spacing: 0.3em; color: #0f766e;">${otp}</div>
-        <p>This code will expire in 10 minutes.</p>
-        <p>If you did not request this, you can ignore this email.</p>
-      </div>
-    `,
+  if (!apiKey) {
+    return {
+      ok: false,
+      reason: "RESEND_API_KEY is not configured.",
+    };
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "ZenTalk <onboarding@resend.dev>",
+      to: [to],
+      subject: "ZenTalk signup verification code",
+      text: `Hello ${name || "there"},
+
+Your ZenTalk verification code is ${otp}.
+
+This code will expire in 10 minutes.
+
+If you did not request this, you can ignore this email.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827;">
+          <h2>Verify your ZenTalk account</h2>
+          <p>Hello ${name || "there"},</p>
+          <p>Your verification code is:</p>
+          <div style="margin: 18px 0; font-size: 28px; font-weight: 700; letter-spacing: 0.3em; color: #0f766e;">
+            ${otp}
+          </div>
+          <p>This code will expire in 10 minutes.</p>
+          <p>If you did not request this, you can ignore this email.</p>
+        </div>
+      `,
+    }),
   });
 
-  return { ok: true };
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error("RESEND ERROR:", data);
+
+    const error = new Error(
+      data?.message || "Failed to send email through Resend."
+    );
+    error.statusCode = response.status;
+    throw error;
+  }
+
+  return {
+    ok: true,
+    id: data.id,
+  };
 }
 
 export const sendExpiryMail = async (email, group) => {
