@@ -491,11 +491,7 @@ app.post('/api/auth/login', async (req, res) => {
     user.lastSeen = new Date();
     await user.save();
 
-    const loginMailResult = await sendLoginAlert({
-      to: user.email,
-      name: user.name,
-      username: user.username,
-    }).catch(error => ({ ok: false, reason: error.message }));
+    const loginMailResult = { ok: false, reason: 'Login alert email skipped.' };
 
     const bootstrap = await buildBootstrap(user._id.toString());
     res.json({ ok: true, ...bootstrap, mail: loginMailResult });
