@@ -641,10 +641,14 @@ app.post('/api/auth/signup/request-otp', async (req, res) => {
       requestId: request._id.toString(),
       message: `Verification code sent to ${normalizedEmail}.`,
     });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({ ok: false, message: error.message });
+  } } catch (error) {
+    console.error("SIGNUP REQUEST OTP ERROR:", error);
+
+    res.status(error.statusCode || 500).json({
+      ok: false,
+      message: error.message || "Internal server error",
+    });
   }
-});
 
 app.post('/api/auth/signup/verify-otp', async (req, res) => {
   try {
