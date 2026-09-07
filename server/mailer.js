@@ -61,9 +61,20 @@ export async function getMailer() {
 
 export async function verifyMailer() {
   const transporter = await getMailer();
-  if (!transporter) return { ok: false, reason: "SMTP is not configured." };
-  await transporter.verify();
-  return { ok: true };
+  if (!transporter) {
+    return { ok: false, reason: "SMTP is not configured." };
+  }
+
+  try {
+    await transporter.verify();
+    return { ok: true };
+  } catch (error) {
+    console.error("SMTP VERIFY ERROR:", error);
+    return {
+      ok: false,
+      reason: `${error.code || "SMTP_ERROR"}: ${error.message}`,
+    };
+  }
 }
 
 function buildFromAddress() {
