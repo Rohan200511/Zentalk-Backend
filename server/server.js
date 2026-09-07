@@ -649,6 +649,7 @@ app.post('/api/auth/signup/request-otp', async (req, res) => {
       message: error.message || "Internal server error",
     });
   }
+});
 
 app.post('/api/auth/signup/verify-otp', async (req, res) => {
   try {
