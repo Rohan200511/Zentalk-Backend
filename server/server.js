@@ -591,11 +591,13 @@ app.post('/api/auth/signup/request-otp', async (req, res) => {
       return;
     }
 
-    const smtpCheck = await verifyMailer();
-    if (!smtpCheck.ok) {
-      res.status(400).json({ ok: false, message: smtpCheck.reason || 'SMTP is not configured.' });
-      return;
-    }
+    if (!process.env.RESEND_API_KEY) {
+  res.status(500).json({
+    ok: false,
+    message: 'Email service is not configured.'
+  });
+  return;
+}
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const normalizedUsername = String(username).trim();
