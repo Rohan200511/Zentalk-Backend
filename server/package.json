@@ -19,7 +19,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
     "clean": "rm -rf dist node_modules/.vite",
     "reset": "npm run clean && npm install",
-    "start": "node src/server/server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "@dr.pogodin/react-helmet": "^3.0.5",

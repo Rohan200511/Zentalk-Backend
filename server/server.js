@@ -587,13 +587,13 @@ app.post('/api/auth/signup/request-otp', async (req, res) => {
       return;
     }
 
-    if (!process.env.RESEND_API_KEY) {
-  res.status(500).json({
-    ok: false,
-    message: 'Email service is not configured.'
-  });
-  return;
-}
+    if (!process.env.EMAIL || !process.env.APP_PASSWORD) {
+      res.status(500).json({
+        ok: false,
+        message: 'Gmail email service is not configured. Set EMAIL and APP_PASSWORD.'
+      });
+      return;
+    }
 
     const normalizedEmail = String(email).trim().toLowerCase();
     const normalizedUsername = String(username).trim();
