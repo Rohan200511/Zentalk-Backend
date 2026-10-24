@@ -54,7 +54,7 @@ function escapeHeader(value = "") {
 }
 
 function makeRawMessage({ to, subject, text, html }) {
-  const from = requiredEnv("EMAIL");
+  const from = `"ZenTalk" <${requiredEnv("EMAIL")}>`;;
   const safeTo = escapeHeader(to);
   const safeFrom = escapeHeader(from);
   const safeSubject = `=?UTF-8?B?${Buffer.from(escapeHeader(subject)).toString("base64")}?=`;
